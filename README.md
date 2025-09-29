@@ -29,6 +29,7 @@ npm run http
 
 - [Overview](#overview)
 - [What is MCP?](#what-is-mcp)
+- [Local Development (Without Docker)](#local-development-without-docker)
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Core Concepts](#core-concepts)
@@ -66,6 +67,160 @@ Model Context Protocol (MCP) is a universal standard for connecting AI models to
 2. **Resources** - Data sources agents can access
 3. **Prompts** - Templates for structured interactions
 4. **Transports** - Communication methods (stdio, HTTP)
+
+## 🐳 Docker Setup
+
+### Quick Start with Docker
+
+No local Node.js or build tools required! Just Docker.
+
+```bash
+# 1. Build the Docker image (includes TypeScript compilation)
+docker build -t mcp-server .
+
+# 2. Run the MCP server
+docker run -d -p 3000:3000 --name mcp-server mcp-server
+
+# View logs
+docker logs -f mcp-server
+
+# Stop the server
+docker stop mcp-server
+docker rm mcp-server
+```
+
+### Customizing Configuration
+
+You can override any environment variable when running the container:
+
+```bash
+# Run with custom port and log level
+docker run -d -p 8080:8080 --name mcp-server \
+  -e HTTP_PORT=8080 \
+  -e LOG_LEVEL=debug \
+  mcp-server
+
+# Run with authentication enabled
+docker run -d -p 3000:3000 --name mcp-server \
+  -e AUTH_ENABLED=true \
+  -e AUTH_USERNAME=myuser \
+  -e AUTH_PASSWORD=mypassword \
+  mcp-server
+```
+
+### Running MCP Inspector
+
+The MCP Inspector should be run locally for the best experience:
+
+```bash
+# Run MCP Inspector locally
+npx @modelcontextprotocol/inspector
+
+# The inspector will open at http://localhost:6274
+```
+
+### Connecting Inspector to the Docker Server
+
+1. Start the MCP server: `docker run -d -p 3000:3000 --name mcp-server mcp-server`
+2. In another terminal, start the Inspector: `npx @modelcontextprotocol/inspector`
+3. Open http://localhost:6274 in your browser
+4. Enter the server URL: `http://localhost:3000/sse`
+5. Click "Connect"
+
+### About MCP Inspector
+
+The MCP Inspector is a visual testing and debugging tool for MCP servers. As of 2025, it includes:
+
+- **Interactive UI**: Test tools, resources, and prompts through a web interface
+- **Security Features**: Built-in authentication and DNS rebinding protection
+- **Multiple Transport Support**: Works with STDIO, SSE, and HTTP transports
+- **Real-time Testing**: Execute tools and see responses immediately
+
+For more information, see the [MCP Inspector GitHub repository](https://github.com/modelcontextprotocol/inspector).
+
+### Security Considerations
+
+⚠️ The MCP Inspector now includes authentication by default (CVE-2025-49596 fix). When you run it locally, a session token is generated and automatically included in the browser URL.
+
+For production environments:
+- Use STDIO transport instead of HTTP/SSE for better security
+- Implement proper authentication and TLS for HTTP transport
+- Consider using Docker MCP Gateway for complete network isolation
+
+## 🖥️ Local Development (Without Docker)
+
+### Running MCP Server Locally
+
+1. **Install dependencies:**
+```bash
+npm install
+```
+
+2. **Configure environment variables:**
+```bash
+cp .env.example .env
+# Edit .env to set your preferences
+```
+
+3. **Run the MCP server:**
+```bash
+# Development mode with hot reload
+npm run dev
+
+# Or production mode with HTTP transport
+npm run http
+
+# Or with stdio transport
+npm run stdio
+```
+
+The server will start on `http://localhost:8080` (or the port specified in `.env`)
+
+### Running MCP Inspector Locally
+
+The MCP Inspector is a visual testing and debugging tool for MCP servers. It's recommended to run it locally for the best experience.
+
+**Quick Start (Recommended)**
+```bash
+# Run the inspector directly with npx
+npx @modelcontextprotocol/inspector
+
+# The inspector will automatically open at http://localhost:6274
+# A session token will be generated for security
+```
+
+**Alternative: Global Installation**
+```bash
+# Install globally
+npm install -g @modelcontextprotocol/inspector
+
+# Run the inspector
+mcp-inspector
+```
+
+**Features:**
+- Interactive web UI for testing MCP servers
+- Support for multiple transport protocols (STDIO, SSE, HTTP)
+- Built-in security with authentication tokens
+- Real-time tool execution and response viewing
+
+**Learn More:**
+- [MCP Inspector Documentation](https://modelcontextprotocol.io/docs/tools/inspector)
+- [GitHub Repository](https://github.com/modelcontextprotocol/inspector)
+
+### Testing the Connection
+
+1. Start the MCP server: `npm run http`
+2. In another terminal, start the Inspector: `npx @modelcontextprotocol/inspector`
+3. Open http://localhost:6274 in your browser (should open automatically)
+4. Enter the MCP server URL: `http://localhost:8080/sse`
+5. Click "Connect" to establish the connection
+
+### Troubleshooting Local Setup
+
+- **Port conflicts:** If port 8080 is in use, change it in `.env`
+- **Connection refused:** Ensure the MCP server is running before connecting the Inspector
+- **SSE transport deprecated warning:** This is expected - the Inspector still uses SSE for compatibility
 
 ## Architecture
 

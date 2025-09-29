@@ -12,7 +12,7 @@ import cors from 'cors';
 import { BasicMCPServer } from './server.js';
 import { EnhancedMCPServer } from './enhanced-server.js';
 import { ServerConfig } from './types.js';
-import { MCPHttpHandler } from './http-handler.js';
+import { EnhancedHttpHandler } from './enhanced-http-handler.js';
 import { SSETransportManager } from './sse-transport.js';
 
 // Load environment variables
@@ -133,27 +133,45 @@ async function startHttpServer(config: ServerConfig): Promise<void> {
     });
   });
 
-  // Create HTTP handler
-  const httpHandler = new MCPHttpHandler(config);
+  // Create enhanced HTTP handler for StreamableHttp transport
+  const enhancedHttpHandler = new EnhancedHttpHandler(config);
 
-  // MCP endpoint with full JSON-RPC support
+  // MCP endpoint with full JSON-RPC support and resource templates
   app.post('/mcp', async (req, res) => {
-    await httpHandler.handleRequest(req, res);
+    await enhancedHttpHandler.handleRequest(req, res);
   });
 
   // SSE transport manager for bidirectional communication
-  const sseManager = new SSETransportManager();
-  const enhancedServer = new EnhancedMCPServer(config);
+  let sseManager: SSETransportManager | null = null;
+  let enhancedServer: EnhancedMCPServer | null = null;
+
+  try {
+    sseManager = new SSETransportManager();
+    enhancedServer = new EnhancedMCPServer(config);
+    console.log('✅ SSE transport initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize SSE transport:', error);
+    console.error('Stack trace:', (error as Error).stack);
+  }
 
   // SSE endpoint - establishes SSE stream for server-to-client messages
   app.get('/sse', async (req, res) => {
     console.log('📡 New SSE connection request');
+
+    if (!sseManager || !enhancedServer) {
+      console.error('❌ SSE transport not initialized');
+      res.status(500).json({ error: 'SSE transport not available' });
+      return;
+    }
+
     try {
       const session = await sseManager.createSession(req, res, enhancedServer.getServer());
       console.log(`✅ SSE session created: ${session.id}`);
     } catch (error) {
       console.error('❌ Failed to create SSE session:', error);
-      res.status(500).json({ error: 'Failed to create SSE session' });
+      console.error('Stack trace:', (error as Error).stack);
+      // Don't send response here as SSE headers may already be set
+      // The error is already logged for debugging
     }
   });
 
@@ -173,8 +191,33 @@ async function startHttpServer(config: ServerConfig): Promise<void> {
       return;
     }
 
+    if (!sseManager) {
+      console.error('❌ SSE transport not initialized for messages endpoint');
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32603,
+          message: 'SSE transport not available',
+        },
+        id: null,
+      });
+      return;
+    }
+
     console.log(`📨 Message for session: ${sessionId}`);
-    await sseManager.handleMessage(sessionId, req, res, req.body);
+    try {
+      await sseManager.handleMessage(sessionId, req, res, req.body);
+    } catch (error) {
+      console.error('❌ Error handling message:', error);
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32603,
+          message: 'Failed to handle message',
+        },
+        id: null,
+      });
+    }
   });
 
   // Start the HTTP server

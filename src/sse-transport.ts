@@ -58,8 +58,19 @@ export class SSETransportManager {
     const transport = new SSEServerTransport('/messages', res, {
       // Enable DNS rebinding protection
       enableDnsRebindingProtection: true,
-      allowedHosts: ['localhost', '127.0.0.1', '0.0.0.0'],
-      allowedOrigins: ['*'], // Configure appropriately for production
+      allowedHosts: [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+        'localhost:3000',
+        '127.0.0.1:3000',
+        '0.0.0.0:3000',
+        'localhost:8080',
+        '127.0.0.1:8080',
+        '0.0.0.0:8080'
+      ],
+      // Note: allowedOrigins removed to allow connections without Origin header
+      // In production, configure this appropriately for security
     });
 
     // Create session object
@@ -81,11 +92,8 @@ export class SSETransportManager {
       this.removeSession(session.id);
     });
 
-    // Connect server to transport
+    // Connect server to transport (this automatically starts the transport)
     await server.connect(transport);
-
-    // Start the SSE stream
-    await transport.start();
 
     console.log(`Created new SSE session: ${session.id}`);
     return session;

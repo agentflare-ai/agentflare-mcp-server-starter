@@ -7,11 +7,14 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
   InitializeRequestSchema,
+  PingRequestSchema,
   ServerCapabilities,
+  ResourceTemplate,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { ServerConfig, Resource, PromptTemplate } from './types.js';
@@ -32,12 +35,14 @@ export class EnhancedMCPServer {
   private server: Server;
   private config: ServerConfig;
   private resources: Map<string, Resource>;
+  private resourceTemplates: Map<string, ResourceTemplate>;
   private prompts: Map<string, PromptTemplate>;
   private sessionManager: SessionManager;
 
   constructor(config: ServerConfig) {
     this.config = config;
     this.resources = new Map();
+    this.resourceTemplates = new Map();
     this.prompts = new Map();
 
     // Define full server capabilities
@@ -62,8 +67,9 @@ export class EnhancedMCPServer {
       }
     );
 
-    // Initialize resources and prompts
+    // Initialize resources, templates and prompts
     this.initializeResources();
+    this.initializeResourceTemplates();
     this.initializePrompts();
 
     // Set up request handlers with capability awareness
@@ -106,6 +112,51 @@ This server features:
 - Complete 2025 MCP specification compliance
 
 Available tools: ${getToolDefinitions().map(t => t.name).join(', ')}`,
+    });
+  }
+
+  /**
+   * Initialize resource templates
+   */
+  private initializeResourceTemplates(): void {
+    // User profile template
+    this.resourceTemplates.set('user://profile/{userId}', {
+      uriTemplate: 'user://profile/{userId}',
+      name: 'User Profile',
+      description: 'Fetches user profile information by user ID',
+      mimeType: 'application/json',
+    });
+
+    // File template for reading files
+    this.resourceTemplates.set('file:///{path}', {
+      uriTemplate: 'file:///{path}',
+      name: 'File Reader',
+      description: 'Reads file contents from the specified path',
+      mimeType: 'text/plain',
+    });
+
+    // API endpoint template
+    this.resourceTemplates.set('api:///{endpoint}/{id}', {
+      uriTemplate: 'api:///{endpoint}/{id}',
+      name: 'API Resource',
+      description: 'Fetches data from API endpoints with optional ID parameter',
+      mimeType: 'application/json',
+    });
+
+    // Database query template
+    this.resourceTemplates.set('db:///{table}/{query}', {
+      uriTemplate: 'db:///{table}/{query}',
+      name: 'Database Query',
+      description: 'Executes database queries on specified tables',
+      mimeType: 'application/json',
+    });
+
+    // Log template with date parameters
+    this.resourceTemplates.set('log:///{service}/{date}', {
+      uriTemplate: 'log:///{service}/{date}',
+      name: 'Service Logs',
+      description: 'Retrieves logs for a specific service and date',
+      mimeType: 'text/plain',
     });
   }
 
@@ -181,6 +232,12 @@ Please provide a detailed answer.`,
           version: this.config.version,
         },
       };
+    });
+
+    // Handle ping requests
+    this.server.setRequestHandler(PingRequestSchema, async (_request, _extra) => {
+      console.log('🏓 Ping received, sending pong...');
+      return {};
     });
 
     // Handle tool listing (check capability)
@@ -274,6 +331,20 @@ Please provide a detailed answer.`,
           description: resource.description,
           mimeType: resource.mimeType,
         })),
+      };
+    });
+
+    // Handle resource template listing (check capability)
+    this.server.setRequestHandler(ListResourceTemplatesRequestSchema, async (_request, extra) => {
+      const sessionId = extra?.sessionId || 'default';
+
+      if (!this.sessionManager.hasCapability(sessionId, 'resources')) {
+        throw new Error('Resources capability not negotiated for this session');
+      }
+
+      console.log('📋 Listing resource templates...');
+      return {
+        resourceTemplates: Array.from(this.resourceTemplates.values()),
       };
     });
 

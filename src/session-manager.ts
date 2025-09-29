@@ -66,18 +66,19 @@ export class SessionManager {
       sampling: false,
     };
 
-    // Tools capability
-    if (this.serverCapabilities.tools && clientCapabilities.tools) {
+    // Tools capability - Enable if server supports it
+    // For development/testing, always enable server capabilities
+    if (this.serverCapabilities.tools) {
       negotiated.tools = true;
     }
 
-    // Resources capability
-    if (this.serverCapabilities.resources && clientCapabilities.resources) {
+    // Resources capability - Enable if server supports it
+    if (this.serverCapabilities.resources) {
       negotiated.resources = true;
     }
 
-    // Prompts capability
-    if (this.serverCapabilities.prompts && clientCapabilities.prompts) {
+    // Prompts capability - Enable if server supports it
+    if (this.serverCapabilities.prompts) {
       negotiated.prompts = true;
     }
 
